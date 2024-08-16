@@ -5,7 +5,7 @@ import Link from "next/link";
 export default function SignUpPage() {
     return (
         <Container maxWidth="100vw">
-            <AppBar position="static" sx={{backgroundColor: "#3f51b5"}}>
+            <AppBar position="static">
                 <Toolbar>
                     <Typography 
                         variant="h6"
