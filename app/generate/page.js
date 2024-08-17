@@ -1,14 +1,15 @@
 "use client"
 
-import { db } from "@/firebase";
-import { useUser } from "@clerk/nextjs"
+import { auth, db } from "@/firebase";
 import { Box, Button, Card, CardActionArea, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, Paper, TextField, Typography } from "@mui/material";
 import { collection, doc, getDoc, writeBatch } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Navbar from "../components/Navbar";
+import { useAuthState } from "react-firebase-hooks/auth";
 
 export default function Generate() {
-    const {isLoaded, isSignedIn, user} = useUser();
+    const [user] = useAuthState(auth);
     const [flashcards, setFlashcards] = useState([])
     const [flipped, setFlipped] = useState([])
     const [text, setText] = useState("")
@@ -48,7 +49,7 @@ export default function Generate() {
         }
 
         const batch = writeBatch(db)
-        const userDocRef = doc(collection(db, 'users'), user.id)
+        const userDocRef = doc(collection(db, 'users'), user.uid)
         const docSnap = await getDoc(userDocRef)
 
         if (docSnap.exists()) {
@@ -76,9 +77,10 @@ export default function Generate() {
     }
 
     return (
-        <Container maxWidth="md">
-            <Box sx={{
-                mt: 4, mb: 6, display: "flex", flexDirection: "column", alignItems: "center"
+        <Box maxWidth="100vw">
+            <Navbar />
+            <Box width={"700px"} sx={{
+                mt: 20, mb: 6, display: "flex", flexDirection: "column", alignItems: "center", ml: "auto", mr: "auto"
             }}>
                 <Typography variant="h4">
                     Generate Flashcards
@@ -201,6 +203,6 @@ export default function Generate() {
                     <Button onClick={saveFashcards}>Save</Button>
                 </DialogActions>
             </Dialog>
-        </Container>
+        </Box>
     )
 }

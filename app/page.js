@@ -2,11 +2,14 @@
 
 import Image from "next/image";
 import getStripe from "@/utils/get-stripe";
-import { SignedIn, SignedOut, SignUpButton, UserButton } from "@clerk/nextjs";
 import { AppBar, Box, Button, Container, Grid, Toolbar, Typography } from "@mui/material";
 import Head from "next/head";
+import Navbar from "./components/Navbar";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "@/firebase";
 
 export default function Home() {
+  const [user] = useAuthState(auth)
 
   const handleSubmit = async () => {
     const checkoutSession = await fetch("/api/checkout_session", {
@@ -25,7 +28,7 @@ export default function Home() {
 
     const stripe = await getStripe()
     const { error } = await stripe.redirectToCheckout({
-      sesseionId: checkoutSessionJson.id
+      sessionId: checkoutSessionJson.id
     })
 
     if (error) {
@@ -39,31 +42,18 @@ export default function Home() {
         <title>Flashcard SaaS</title>
         <meta name="description" content="Create flashcards from your text" />
       </Head>
- 
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" style={{flexGrow: 1}}>
-            Flashcard SaaS
-          </Typography>
-          <SignedOut>
-            <Button color="inherit" href="/sign-in">Login</Button>
-            <Button color="inherit" href="/sign-up">Sign Up</Button>
-          </SignedOut>
-          <SignedIn>
-            <UserButton />
-          </SignedIn>
-        </Toolbar>
-      </AppBar>
+
+      <Navbar />
 
       <Box sx={{
-        textAlign: "center"
+        textAlign: "center",
+        mt: 15
       }}>
         <Typography variant="h2" gutterBottom> Welcome to Flashcard SaaS</Typography>
         <Typography variant="h5" gutterBottom>
-          {' '}
           The easiest way to make flashcards from your text
         </Typography>
-        <Button variant="contained" color="primary" sx={{ mt: 2 }}>Get Started</Button>
+        <Button variant="contained" color="primary" href={user ? "/generate" : "/sign-in"} sx={{ mt: 2 }}>Get Started</Button>
       </Box>
       <Box sx={{ my: 6, textAlign: "center" }}>
         <Typography variant="h4" gutterBottom>
@@ -104,7 +94,7 @@ export default function Home() {
               width: "800px"
             }}>
               <Typography variant="h5" gutterBottom sx={{ mt: 1 }}>Basic</Typography>
-              <Typography variant="h6" gutterBottom>$5 / month</Typography>
+              <Typography variant="h6" gutterBottom>$0 / month</Typography>
               <Typography>
                 Access to basic flashcard features and limited storage.
               </Typography>
@@ -120,7 +110,7 @@ export default function Home() {
               width: "800px"
             }}>
               <Typography variant="h5" gutterBottom sx={{ mt: 1 }}>Pro</Typography>
-              <Typography variant="h6" gutterBottom>$10 / month</Typography>
+              <Typography variant="h6" gutterBottom>$5 / month</Typography>
               <Typography>
                 Unlimited flashcards and storage, with priority support.
               </Typography>

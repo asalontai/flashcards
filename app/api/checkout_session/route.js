@@ -1,29 +1,16 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe[process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY]
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 const formatAmountForStripe = (amount) => {
     return Math.round(amount * 100)
 }
 
-export async function GET(req) {
-    const searchParams = req.nextUrl.searchParams
-    const session_id = searchParams.get("session_id")
-
-    try {
-        const checkoutSession = await stripe.checkout.sessions.retrieve(session_id)
-        return NextResponse.json(checkoutSession)
-    } catch(error) {
-        console.error("Error retrieving checkout session:", error)
-        return NextResponse.json({ error: { message: error.message }}, { staus: 500})
-    }
-}
-
 export async function POST(req) {
     const params = {
         mode: "subscription",
-        payment_method: ['card'],
+        payment_method_types: ['card'],
         line_items: [
             {
                 price_data: {
@@ -48,4 +35,17 @@ export async function POST(req) {
     return NextResponse.json(checkoutSession, {
         status: 200,
     })
+}
+
+export async function GET(req) {
+    const searchParams = req.nextUrl.searchParams
+    const session_id = searchParams.get("session_id")
+
+    try {
+        const checkoutSession = await stripe.checkout.sessions.retrieve(session_id)
+        return NextResponse.json(checkoutSession)
+    } catch(error) {
+        console.error("Error retrieving checkout session:", error)
+        return NextResponse.json({ error: { message: error.message }}, { staus: 500})
+    }
 }
