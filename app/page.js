@@ -10,15 +10,16 @@ import { auth } from "@/firebase";
 
 export default function Home() {
   const [user] = useAuthState(auth)
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (plan) => {
+    const price = plan === 'Pro' ? 10 : 5;
     const checkoutSession = await fetch("/api/checkout_session", {
       method: "POST",
+      body: JSON.stringify({ price }),
       headers: {
         origins: "http://localhost:3000"
       }
+      
     })
-
     const checkoutSessionJson = await checkoutSession.json()
 
     if (checkoutSession.statusCode === 500) {
@@ -94,11 +95,11 @@ export default function Home() {
               width: "800px"
             }}>
               <Typography variant="h5" gutterBottom sx={{ mt: 1 }}>Basic</Typography>
-              <Typography variant="h6" gutterBottom>$0 / month</Typography>
+              <Typography variant="h6" gutterBottom>$5 / month</Typography>
               <Typography>
                 Access to basic flashcard features and limited storage.
               </Typography>
-              <Button variant="contained" color="primary" sx={{ mt: 2, mb: 2 }}>Choose Basic</Button>
+              <Button variant="contained" onClick={() => handleSubmit('Basic')} color="primary" sx={{ mt: 2, mb: 2 }}>Choose Basic</Button>
             </Box>
           </Grid>
           <Grid item xs={12} md={6}>
@@ -110,11 +111,11 @@ export default function Home() {
               width: "800px"
             }}>
               <Typography variant="h5" gutterBottom sx={{ mt: 1 }}>Pro</Typography>
-              <Typography variant="h6" gutterBottom>$5 / month</Typography>
+              <Typography variant="h6" gutterBottom>$10 / month</Typography>
               <Typography>
                 Unlimited flashcards and storage, with priority support.
               </Typography>
-              <Button variant="contained" onClick={handleSubmit} color="primary" sx={{ mt: 2, mb: 2 }}>Choose Pro</Button>
+              <Button variant="contained" onClick={() => handleSubmit('Pro')} color="primary" sx={{ mt: 2, mb: 2 }}>Choose Pro</Button>
             </Box>
           </Grid>
         </Grid>

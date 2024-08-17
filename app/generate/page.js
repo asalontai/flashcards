@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 import { useAuthState } from "react-firebase-hooks/auth";
+import getStripe from "@/utils/get-stripe";
 
 export default function Generate() {
     const [user] = useAuthState(auth);
@@ -15,10 +16,22 @@ export default function Generate() {
     const [text, setText] = useState("")
     const [name, setName] = useState("")
     const [open, setOpen] = useState(false)
+    const [generateCount, setGenerateCount] = useState(0);
+    const [pricingOpen, setPricingOpen] = useState(false);
 
     const router = useRouter()
 
     const handleSubmit = async () => {
+        setGenerateCount((prevCount) => {
+            const newCount = prevCount + 1;
+    
+            if (newCount >= 3) { 
+                setPricingOpen(true); 
+                
+            }
+    
+            return newCount; 
+        });
         fetch("api/generate", {
             method: "POST",
             body: text,
@@ -26,6 +39,32 @@ export default function Generate() {
             .then((res) => res.json())
             .then((data) => setFlashcards(data))
     }
+    const handleSubmitsubscription = async (plan) => {
+        const price = plan === 'Pro' ? 10 : 5;
+        const checkoutSession = await fetch("/api/checkout_session", {
+          method: "POST",
+          body: JSON.stringify({ price }),
+          headers: {
+            origins: "http://localhost:3000"
+          }
+          
+        })
+        const checkoutSessionJson = await checkoutSession.json()
+    
+        if (checkoutSession.statusCode === 500) {
+          console.log(checkoutSession.message)
+          return
+        }
+    
+        const stripe = await getStripe()
+        const { error } = await stripe.redirectToCheckout({
+          sessionId: checkoutSessionJson.id
+        })
+    
+        if (error) {
+          console.log(error.message)
+        }
+      } 
 
     const handleCardClick = (id) => {
         setFlipped((prev) => ({
@@ -41,6 +80,10 @@ export default function Generate() {
     const handleClose = () => {
         setOpen(false)
     }
+    const handlePricingClose = () => {
+        setPricingOpen(false); 
+    }
+
 
     const saveFashcards = async () => {
         if (!name) {
@@ -203,6 +246,59 @@ export default function Generate() {
                     <Button onClick={saveFashcards}>Save</Button>
                 </DialogActions>
             </Dialog>
+
+            <Dialog open={pricingOpen} onClose={handlePricingClose} fullWidth maxWidth="md">
+    <DialogTitle>
+        Choose a Plan
+    </DialogTitle>
+    <DialogContent>
+        <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h4" sx={{ mb: 2 }}>
+                Pricing
+            </Typography>
+            <Grid container spacing={4} justifyContent={"center"}>
+                <Grid item xs={12} md={6}>
+                    <Box sx={{
+                        p: 3,
+                        border: "1px solid",
+                        borderColor: "grey.300",
+                        borderRadius: 2,
+                        textAlign: "center",
+                        width: "100%"
+                    }}>
+                        <Typography variant="h5" gutterBottom sx={{ mt: 1 }}>Basic</Typography>
+                        <Typography variant="h6" gutterBottom>$5 / month</Typography>
+                        <Typography>
+                            Access to basic flashcard features and limited storage.
+                        </Typography>
+                        <Button variant="contained" onClick={() => handleSubmitsubscription('Basic')} color="primary" sx={{ mt: 2, mb: 2 }}>Choose Basic</Button>
+                    </Box>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                    <Box sx={{
+                        p: 3,
+                        border: "1px solid",
+                        borderColor: "grey.300",
+                        borderRadius: 2,
+                        textAlign: "center",
+                        width: "100%" 
+                    }}>
+                        <Typography variant="h5" gutterBottom sx={{ mt: 1 }}>Pro</Typography>
+                        <Typography variant="h6" gutterBottom>$10 / month</Typography>
+                        <Typography>
+                            Unlimited flashcards and storage, with priority support.
+                        </Typography>
+                        <Button variant="contained" onClick={() => handleSubmitsubscription('Pro')} color="primary" sx={{ mt: 2, mb: 2 }}>Choose Pro</Button>
+                    </Box>
+                </Grid>
+            </Grid>
+        </Box>
+    </DialogContent>
+    <DialogActions>
+        <Button onClick={handlePricingClose}>Close</Button>
+    </DialogActions>
+</Dialog>
+
         </Box>
     )
 }
