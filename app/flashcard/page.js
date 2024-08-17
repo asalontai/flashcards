@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, writeBatch } from "firebase/firestore"
 import { auth, db } from "@/firebase"
 
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Box, Button, Card, CardActionArea, CardContent, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, TextField, Typography } from "@mui/material";
 import Navbar from "../components/Navbar"
 import { useAuthState } from "react-firebase-hooks/auth"
@@ -15,14 +15,15 @@ export default function Flashcard() {
     const [flashcards, setFlashcards] = useState([]);
     const [flipped, setFlipped] = useState([]);
 
-    const [name, setName] = useState("");
-    const [open, setOpen] = useState(false);
+    const [openEdit, setOpenEdit] = useState(false);
+    const [openDelete, setOpenDelete] = useState(false);
     const [newName, setNewName] = useState("");
     const [oldName, setOldName] = useState("");
-    const [collectionId, setCollectionId] = useState("");
 
     const searchParams = useSearchParams();
     const search = searchParams.get("id");
+
+    const router = useRouter()
 
     useEffect(() => {
         async function getFlashcard() {
@@ -30,7 +31,8 @@ export default function Flashcard() {
                 return;
             }
 
-            setCollectionId(search);
+            console.log(search)
+
             const colRef = collection(doc(db, "users", user.uid), search);
             const docs = await getDocs(colRef);
             const flashcards = [];
@@ -39,9 +41,7 @@ export default function Flashcard() {
                 flashcards.push({ id: doc.id, ...doc.data() });
             });
 
-            if (flashcards.length > 0) {
-                setOldName(flashcards[0].name);
-            }
+            setOldName(search)
 
             setFlashcards(flashcards);
         }
@@ -56,63 +56,120 @@ export default function Flashcard() {
     };
 
     const updateFlashcardName = async () => {
-        if (!collectionId || !newName || !user || !oldName) return;
-    
-        // Reference to the user's document in Firestore
-        const userDocRef = doc(db, "users", user.uid);
-        
-        // Reference to the flashcard collection
-        const colRef = collection(userDocRef, collectionId);
-        const docs = await getDocs(colRef);
-    
-        const updatedFlashcards = [];
-    
-        // Loop through each document in the collection
-        docs.forEach((doc) => {
-            const flashcard = doc.data();
-            // Replace the name if it matches the old name
-            if (flashcard.name === oldName) {
-                updatedFlashcards.push({ ...flashcard, name: newName });
-            } else {
-                updatedFlashcards.push(flashcard);
-            }
-        });
-    
-        // Write the updated flashcards back to Firestore
-        // Note: Firestore requires you to update documents individually
-        const batch = writeBatch(db);
-        docs.forEach((doc) => {
-            const flashcard = updatedFlashcards.find(fc => fc.id === doc.id);
-            if (flashcard) {
-                const flashcardRef = doc.ref;
-                batch.update(flashcardRef, flashcard);
-            }
-        });
-    
-        await batch.commit();
-    
-        // Log the updated flashcards to verify the change
-        console.log("Updated flashcards:", updatedFlashcards);
-    
-        // Update the local state
-        setFlashcards(updatedFlashcards);
-        handleClose();
-    };
-    
+        if (!newName) {
+            alert("Please enter a new name");
+            return;
+        }
 
-    const handleOpen = () => {
-        setOpen(true)
+        const batch = writeBatch(db);
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+
+        if (docSnap.exists()) {
+            const collections = docSnap.data().flashcards || [];
+            const oldCollectionExists = collections.find((f) => f.name === oldName);
+            const newCollectionExists = collections.find((f) => f.name === newName);
+
+            if (!oldCollectionExists) {
+                alert("Old flashcard collection does not exist.");
+                return;
+            }
+
+            if (newCollectionExists) {
+                alert("Flashcard collection with the new name already exists.");
+                return;
+            }
+
+            const updatedCollections = collections.map((f) => 
+                f.name === oldName ? { ...f, name: newName } : f
+            );
+            
+            batch.set(userDocRef, { flashcards: updatedCollections }, { merge: true });
+
+            const oldColRef = collection(userDocRef, oldName);
+            const newColRef = collection(userDocRef, newName);
+
+            const snapshot = await getDocs(oldColRef);
+            snapshot.forEach((i) => {
+                const newDocRef = doc(newColRef, i.id);
+                batch.set(newDocRef, i.data());
+            });
+
+            snapshot.forEach((i) => {
+                const oldDocRef = doc(oldColRef, i.id);
+                batch.delete(oldDocRef);
+            });
+
+            await batch.commit();
+            handleCloseEdit()            
+            router.push(`/flashcard?id=${newName}`)
+            setNewName("")
+        } else {
+            alert("No such document!");
+        }
+    };
+
+    const deleteFlashcard = async () => {
+        if (!search) {
+            alert("Please enter a collection name to delete");
+            return;
+        }
+        
+        const userDocRef = doc(db, 'users', user.uid);
+        const colRef = collection(userDocRef, search);
+    
+        try {
+            const snapshot = await getDocs(colRef);
+
+            if (snapshot.empty) {
+                alert("No documents found in the collection");
+                return;
+            }
+
+            const batch = writeBatch(db);
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            await batch.commit();
+
+            const userDocSnap = await getDoc(userDocRef);
+            const collections = userDocSnap.data().flashcards || [];
+            const updatedCollections = collections.filter(f => f.name !== search);
+
+            await updateDoc(userDocRef, {
+                flashcards: updatedCollections
+            });
+
+            router.push("/flashcards")
+        } catch (error) {
+            console.error("Error deleting collection: ", error);
+            alert("Error deleting collection");
+        }
+    };
+
+    const handleOpenEdit = () => {
+        setOpenEdit(true)
     }
 
-    const handleClose = () => {
-        setOpen(false)
+    const handleCloseEdit = () => {
+        setOpenEdit(false)
+    }
+
+    const handleOpenDelete = () => {
+        setOpenDelete(true)
+    }
+
+    const handleCloseDelete = () => {
+        setOpenDelete(false)
     }
 
     return (
         <Box maxWidth="100vw">
             <Navbar />
             <Box display={"flex"} alignItems={"center"} justifyContent={"center"} flexDirection={"column"}>
-                <Button href="/flashcards" variant="contained" sx={{ mt: 20, mb: 5 }}>Back</Button>
+                <Typography color={"black"} mt={15} variant="h3">{oldName}</Typography>
+                <Button href="/flashcards" variant="contained" sx={{ mt: 5, mb: 5 }}>Back</Button>
                 <Grid container spacing={3}>
                     {flashcards.map((flashcard, index) => (
                         <Grid item xs={12} sm={6} md={4} key={index}>
@@ -172,9 +229,10 @@ export default function Flashcard() {
                         </Grid>
                     ))}
                 </Grid>
-                <Button variant="contained" color="primary" onClick={handleOpen}>Edit</Button>
+                <Button variant="contained" color="primary" onClick={handleOpenEdit}>Edit</Button>
+                <Button variant="contained" color="primary" onClick={handleOpenDelete}>Delete</Button>
             </Box>
-            <Dialog open={open} onClose={handleClose}>
+            <Dialog open={openEdit} onClose={handleCloseEdit}>
                 <DialogTitle>
                     Edit Flashcard Name
                 </DialogTitle>
@@ -194,8 +252,17 @@ export default function Flashcard() {
                     />                 
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose}>Cancel</Button>
+                    <Button onClick={handleCloseEdit}>Cancel</Button>
                     <Button onClick={updateFlashcardName}>Save</Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={openDelete} onClose={handleCloseDelete}>
+                <DialogTitle>
+                    Delete Flashcard
+                </DialogTitle>
+                <DialogActions>
+                    <Button onClick={handleCloseDelete}>Cancel</Button>
+                    <Button onClick={deleteFlashcard}>Delete</Button>
                 </DialogActions>
             </Dialog>
         </Box>
