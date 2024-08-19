@@ -32,7 +32,7 @@ export default function Navbar({ }) {
           }}
         >
           <Toolbar>
-            <Typography variant='h4' mr={"auto"}>Flashcard SaaS</Typography>
+            <Typography variant='h4' mr={"auto"} sx={{ cursor: "pointer"}} onClick={() => {router.push("/")}}>Flashcard SaaS</Typography>
             <Image src={user.photoURL} width={40} height={40} style={{ borderRadius: '100%' }} />
             <Button color="inherit" href='/generate' sx={{ ml: 1 }}>Create</Button>
             <Button color="inherit" href='/flashcards'>Flashcards</Button>
@@ -52,7 +52,7 @@ export default function Navbar({ }) {
           }}
         >
           <Toolbar>
-            <Typography variant='h4' mr={"auto"}>Flashcard SaaS</Typography>
+            <Typography variant='h4' mr={"auto"} sx={{ cursor: "pointer"}} onClick={() => {router.push("/")}}>Flashcard SaaS</Typography>
             <Button color="inherit" href='/'>Home</Button>
             <Button color="inherit" href='/sign-in'>Login</Button>
             <Button color="inherit" href='/sign-up'>Sign Up</Button>
